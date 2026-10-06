@@ -75,7 +75,7 @@
 
 - **What it does:**
 - **Inputs:** outfit (string), new_item (dict)
-- **Returns:** a string with a 2-4 sentence caption about the outfit combination passed in, mentioning the item, its price, and platform and the vibe of the outfit.
+- **Returns:** a string with a 2-4 sentence caption about the outfit combination passed in, mentioning the item (name), its price, platform, and the vibe of the outfit.
 - **When it has nothing:** Returns a descriptive message about the new item itself if no outfit string is passed in (never an exception, never "").
 
 ---
