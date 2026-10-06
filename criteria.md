@@ -17,17 +17,47 @@ data earns credit; *"80% seemed reasonable"* does not.
 
 **Two are written for you. You write three.**
 
+target - measurable (number, count, or rate) via observation, criterion NOT opinion
+why this target - why not stricter/why this target, must mention tools, loop, or data (listings, wardrobe)
+
 ---
+
+criterion:
+- 1. happy path: loop proceeds and completes all tools calls expected - when branch is successful
+     - expected fields in state are non-empty
+- 2. unhappy path: loop never proceeds or completes 2nd and 3rd tool calls - when branch is unsuccessful
+- 3. tool calls receive correct inputs
+     - fields in state contain expected/matching content (selected item is present in outputs of both tool calls - suggested_outfit and fit_card)
+- 4. happy path: fit cards are generated with content from selected item - when branch is successful
+     - fit cards contain the selected item's price
+- 5. search parses queries and applies max price filter correctly
+     - selected item must be under the max price specified by the user's query
+
+Q: if the criteria itself has a condition for the test
+(ex. a matching query - aka. a search that returns at least one listing)
+(ex. an impossibly query - aka. a search that returns an empty list)
+
+should evaluations ONLY consider test cases that satisfy the initial condition when determining if the criteria was met?
+
 
 ## 1. A matching query completes all three tools
 
 Given a query that matches at least one listing, the agent completes all three
-tool calls and returns a fit card — in at least 4 of 5 tries.
+tool calls and returns a fit card — in at least 5 of 5 tries.
 
 **Why this target:**
 <!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
      "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+     real answer. 
+     
+     no, if missed, then the listings would be empty - at least one listig means keyword match was successful-->
+     Loop and tool (failure case design): Assuming that search_listings() succeeds in returning at least one listing, the branch (in the loop) will always be fulfilled and proceed to the other two tools.
+
+     The tools have clearly defined failure cases that should never block the sequence of calls even if they receive nothing. (suggest_outfit returns generic styling advice for item instead of specific outfit if empty wardrobe, create_fit_card describes the item if no outfit is passed).
+
+     **Therefore, all three tool calls should always be completed as long as the branch is fulfilled (list returned from list isn't empty).
+
+     Observable: Check that selected_item, outfit_suggestion, and create_fit_card all not empty.
 
 ---
 
@@ -39,10 +69,12 @@ Given a query that matches no listings, the agent stops before calling
 **Why this target:**
 <!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
      about this path? -->
+     Loop (branch): This is the exact definition of the failure branch. The loop's branch condition should **always** returns and writes a message (error field) when the search returns an empty list, meaning it will never call suggest_outfit() or create_fit_card().
 
+     Observable: search_results, selected_item, outfit_suggestion, and create_fit_card should all be empty, and error must contain a messsage naming what to change.
 ---
 
-## 3. Something about state
+## 3. A matching query mentions the selected item in all tool call outputs
 
 <!-- YOU WRITE THIS ONE.
 
@@ -54,15 +86,16 @@ Given a query that matches no listings, the agent stops before calling
      compares session["selected_item"] against what actually reached
      suggest_outfit is the shape you're after. -->
 
+     Given a query that matches at least one listing, the suggested_outfit and fit card should both mention at least 1 keyword from the selected_item (specifically, its title) - 4 of 5 tries.
 
 
 **Why this target:**
-
+     Tool (design/dependencies): The outfit suggestion from outfit_suggestion() and fit card from create_fit_card() rely on model-generated responses, which may result in slightly mismatched phrasings that aren't identical to keywords from the selected_item's title.
 
 
 ---
 
-## 4. Something about the fit card
+## 4. A matching query creates a fit card that mentions the price.
 
 <!-- YOU WRITE THIS ONE.
 
@@ -75,15 +108,18 @@ Given a query that matches no listings, the agent stops before calling
      sentence? A card longer than a caption anyone would post? Any of those can
      be turned into a number. -->
 
-
+     Given a query that matches at least one listing, the fit card caption should include the price of the selected item - 4 of 5 tries.
 
 **Why this target:**
-
+     Assuming that search returned at least one listing, the fit card should receive the selected item and outfit description.
+     
+     Since every listing in data/listings.json has a valid, non-empty price, the fit card caption should include that price. However, it is possible that the price may be missed/not presented properly since create_fit_card() relies on a model-generated response.
+     
 
 
 ---
 
-## 5. Your choice
+## 5. All queries with a max price select an item below the chosen price.
 
 <!-- YOU WRITE THIS ONE TOO.
 
@@ -92,10 +128,10 @@ Given a query that matches no listings, the agent stops before calling
      search respects a price ceiling — anything, as long as it names a number
      or an observable outcome. -->
 
-
+     If a max price is included in the query, selected_item must be below the price specified by the user in the query - 4 of 5 tries.
 
 **Why this target:**
-
+     Every listing in data/listings.json has a valid price that can be compared against a specified max price. However, parsing the user's query relies on a model-generated response, and the model may sometimes incorrectly parse or fail to recognize a max price.
 
 
 ---
