@@ -40,7 +40,7 @@
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
-
+**TODO
 
 
 ---
@@ -59,24 +59,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Searches the listings data for items matching a description, and optionally, a size or pricing.
+- **Inputs:** description (str), size (str | None), max_price (str | None). None skips filtering by that attribute.
+- **Returns:** A list of matching item dicts, each containing id, title, description, category, style_tags (list), size, condition, price(float), colors (list), brand (str | None), platform.
+- **When it has nothing:** Returns an empty list (NOT None and not an exception).
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Given a new item and the user's current wardrobe, suggests one or two outfits (combinations of new item and a wardrobe item).
+- **Inputs:** new_item (dict), wardrobe (dict)
+- **Returns:** A non-empty **string** with outfit suggestions. 
+- **When it has nothing:** Returns general outfit/styling advice for chosen item, if wardrobe is empty (never an exception, never "").
 
 ### `create_fit_card`
 
 - **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **Inputs:** outfit (string), new_item (dict)
+- **Returns:** a string with a 2-4 sentence caption about the outfit combination passed in, mentioning the item, its price, and platform and the vibe of the outfit.
+- **When it has nothing:** Returns a descriptive message about the new item itself if no outfit string is passed in (never an exception, never "").
 
 ---
 
@@ -95,12 +95,23 @@
 
 **Branch rule:**
 
+If search_listings() returns an empty list, put a message in the session dict's error property saying what the user could change (a broader description or a different price or size to filter by), then returns the session.
+
+Otherwise, calls suggest_outfit() and create_fit_card() with the first item in the returned list.
+
 **Where it lives:** `agent.py::run_agent`
 
 **How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+The model is called with a prompt to parse the query into 3 fields: description, and optionally, a max price and size. 
 
 **What moves through the session:** <!-- which fields, in what order -->
+if search_listings() returns an empty list, error is filled with a message.
 
+otherwise, the first item in the returned list is put in selected_item
+
+then the outfit (combination of items) returned from suggest_outfit() is put in outfit_suggestion
+
+finally, the post for the selected item and outfit is put in fit_card
 ---
 
 ## Sample Run
