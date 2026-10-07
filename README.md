@@ -59,7 +59,7 @@
 
 ### `search_listings`
 
-- **What it does:** Searches the listings data for items matching a description, and optionally, a size or pricing.
+- **What it does:** Searches the listings data for items matching a description, and optionally, a size or pricing. Size matching is completed by normalizing size strings and comparing it to the normalized size of each listing. Only notations/size systems from the listing are accepted and will return matches, and only listings that share the same sizing system as the input size can be matched. Cross-system matching is unsupported.
 - **Inputs:** description (str), size (str | None), max_price (str | None). None skips filtering by that attribute.
 - **Returns:** A list of matching item dicts, each containing id, title, description, category, style_tags (list), size, condition, price(float), colors (list), brand (str | None), platform.
 - **When it has nothing:** Returns an empty list (NOT None and not an exception).
@@ -131,7 +131,7 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+$ python -c "from tools import search_listings; import json; matching_listings=(search_listings('graphic tee', max_price=30)); pretty_json = json.dumps(matching_listings, indent=4); print(pretty_json);"
 
 ```
 
