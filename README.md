@@ -40,7 +40,10 @@
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
-**TODO
+FitFindr is an AI agent that accepts a natural language query to generate outfits for any item. 
+The user can describe their desired item, optionally with a price cap and desired size.
+It finds and prints the top-matching item, a suggested outfit (or falls back to general styling advice), and a post caption
+featuring the found item and suggested outfit.
 
 
 ---
