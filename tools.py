@@ -23,6 +23,37 @@ the description has to say what is *in* the list.
 import config  # noqa: F401 — you'll use this in search_listings
 from generate import generate
 from utils.data_loader import load_listings
+from utils.data_parser import size_matches
+from utils.data_parser import tokenize_text
+import json
+
+def keyword_score(query: str, listing: dict) -> int:
+    """Score unique keyword overlap across all searchable listing fields.
+
+    Every matching title token, description token, style-tag phrase, and color
+    phrase contributes **one point**.
+    
+    Field weights can be tuned.
+    """
+    query_tokens = set(tokenize_text(query)) # get tokens
+    if not query_tokens:
+        return 0
+
+    title_tokens = set(tokenize_text(listing.get("title", "")))
+    description_tokens = set(tokenize_text(listing.get("description", "")))
+    score = len(query_tokens & title_tokens) # intersection: make list of shared/intersecting elements
+    score += len(query_tokens & description_tokens)
+
+    query_text = query.lower()
+    for value in listing.get("style_tags", []):
+        if value.lower() in query_text:
+            score += 1
+
+    for value in listing.get("colors", []):
+        if value.lower() in query_text:
+            score += 1
+
+    return score
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
@@ -68,18 +99,47 @@ def search_listings(
     assumes a brand is always there, you will find out in unit 4.
 
     TODO:
-        1. Load every listing with load_listings().
-        2. Filter by max_price and by size, when each is provided.
+        1. (done) Load every listing with load_listings().
+        2. (done) Filter by max_price and by size, when each is provided.
         3. Score what's left by keyword overlap with `description`.
-        4. Drop anything scoring zero.
+        4. (done) Drop anything scoring zero.
         5. Sort by score, highest first, and return the listing dicts —
            at most config.SEARCH_RESULT_LIMIT of them.
 
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+
+    listings = load_listings()
+    matching_listings = []
+
+    pretty_json = json.dumps(listings, indent=4)
+    # print(pretty_json)
+
+    for listing in listings:
+
+        # check if listing size matches requested size
+        if size and not size_matches(listing["size"], size): # size filter used, and size doesn't match
+            continue
+        if max_price and listing["price"] > max_price: # max_price filter used, and price exceeds max price
+            continue
+
+        score = keyword_score(description, listing)
+
+        # if score = 0, means NO matching keywords found in query vs. listing name
+        if score != 0:
+            listing["score"] = score  # add score as a property for filtering
+            matching_listings.append(listing)
+
+    # sort descending by score (highest -> lowest), in place
+    matching_listings.sort(key=lambda listing: listing["score"], reverse=True)
+    matching_listings = matching_listings[:config.SEARCH_RESULT_LIMIT]
+
+    # format matching listings for readability
+    pretty_json = json.dumps(matching_listings, indent=4)
+    print(pretty_json)
+
+    return matching_listings
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
