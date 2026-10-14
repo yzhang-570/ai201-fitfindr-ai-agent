@@ -31,7 +31,8 @@ def keyword_score(query: str, listing: dict) -> int:
     """Score unique keyword overlap across all searchable listing fields.
 
     Every matching title token, description token, style-tag phrase, and color
-    phrase contributes **one point**.
+    phrase contributes:
+    - **one point**
     
     Field weights can be tuned.
     """
@@ -101,9 +102,9 @@ def search_listings(
     TODO:
         1. (done) Load every listing with load_listings().
         2. (done) Filter by max_price and by size, when each is provided.
-        3. Score what's left by keyword overlap with `description`.
+        3. (done) Score what's left by keyword overlap with `description`.
         4. (done) Drop anything scoring zero.
-        5. Sort by score, highest first, and return the listing dicts —
+        5. (done) Sort by score, highest first, and return the listing dicts —
            at most config.SEARCH_RESULT_LIMIT of them.
 
     Test it from a terminal before you move on:
@@ -113,15 +114,12 @@ def search_listings(
     listings = load_listings()
     matching_listings = []
 
-    pretty_json = json.dumps(listings, indent=4)
-    # print(pretty_json)
-
     for listing in listings:
 
         # check if listing size matches requested size
         if size and not size_matches(listing["size"], size): # size filter used, and size doesn't match
             continue
-        if max_price and listing["price"] > max_price: # max_price filter used, and price exceeds max price
+        if max_price is not None and listing["price"] > max_price: # max_price filter used, and price exceeds max price
             continue
 
         score = keyword_score(description, listing)
@@ -131,13 +129,9 @@ def search_listings(
             listing["score"] = score  # add score as a property for filtering
             matching_listings.append(listing)
 
-    # sort descending by score (highest -> lowest), in place
+    # sort descending by score (highest ->if im lowest), in place
     matching_listings.sort(key=lambda listing: listing["score"], reverse=True)
     matching_listings = matching_listings[:config.SEARCH_RESULT_LIMIT]
-
-    # format matching listings for readability
-    pretty_json = json.dumps(matching_listings, indent=4)
-    print(pretty_json)
 
     return matching_listings
 
@@ -163,17 +157,56 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
         purpose, so decide now what it should do.
 
     TODO:
-        1. Check whether wardrobe['items'] is empty.
-        2. If it is, ask the model for general styling ideas for this item.
-        3. If it isn't, format the wardrobe items into the prompt and ask for
+        1. (done) Check whether wardrobe['items'] is empty.
+        2. (done) If it is, ask the model for general styling ideas for this item.
+        3. (done) If it isn't, format the wardrobe items into the prompt and ask for
            specific combinations naming pieces the user already owns.
-        4. Return the model's response.
+        4. (done) Return the model's response.
 
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+
+    system = "You are a practical personal stylist. Keep your answer concise."
+
+    if not wardrobe.get("items"):
+        # get generic styling advice
+        return generate(
+            prompt=f"""Given this new thrifted item, share concise general advice
+            for styling it. Include suggestions for colors, silhouettes, and
+            occasions when useful.
+
+            Name the new item with (New Item) next to its categore, printed before the styling advice.
+
+            For example: * **Outerwear (New Item):** Oversized grey crewneck sweatshirt
+            Do not invent items that are not in the wardrobe.
+
+            New item: {json.dumps(new_item, indent=2)}
+            """,
+            system=system
+        )
+
+    # prompt - ask for specific combinations naming pieces user owns (from wardrobe)
+    return generate(
+        prompt=f"""Given the following new item and the user's current wardrobe, 
+        suggests one outfit.
+        
+        The outfit must contain existing wardrobe to be worn in combination
+        with the new item.
+        
+        New item: {new_item}
+        User's wardrobe: {wardrobe}
+        
+        Return the suggested wardrobe pieces as a readable outfit description,
+        naming the pieces used, and label the new item as (New Item) next to its category.
+
+        For example: * **Outerwear (New Item):** Oversized grey crewneck sweatshirt
+        Do not invent items that are not in the wardrobe.
+
+        Outfits must always be listed in the order: Tops, Bottoms, Outerwear, Shoes, Accessories
+        """,
+        system=system
+    )
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -205,12 +238,33 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         • TEMPERATURE   — at 0.0 the model gives the same words every time
 
     TODO:
-        1. Guard against an empty or whitespace-only `outfit`.
-        2. Build a prompt with the item details and the outfit.
-        3. Call generate() and return the response.
+        1. (done) Guard against an empty or whitespace-only `outfit`.
+        2. (done) Build a prompt with the item details and the outfit.
+        3. (done) Call generate() and return the response.
 
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    item_title = new_item.get("title", "this item")
+    if not outfit or not outfit.strip():
+        return (
+            f"{item_title} is a {new_item.get('condition', 'pre-owned')} "
+            f"find on {new_item.get('platform', 'a resale platform')} for "
+            f"${new_item.get('price', 'an affordable price')}. "
+            "Its details make it an easy starting point for a personal look."
+        )
+
+    return generate(
+        prompt=f"""Write a short, natural social-media fit card in 2-4 sentences.
+        Mention the item title, its price, and its resale platform exactly once.
+        Describe the outfit's overall vibe. Treat the outfit suggestion as
+        styling guidance, not as a product listing.
+
+        New item: {json.dumps(new_item, indent=2)}
+        Outfit suggestion: {outfit}
+        """,
+        system=(
+            "You are a concise fashion copywriter. Write an engaging caption "
+            "without hashtags or extra headings."
+        ),
+    )
