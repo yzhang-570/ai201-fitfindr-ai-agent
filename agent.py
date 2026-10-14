@@ -14,6 +14,7 @@ Build and test your three tools in `tools.py` first. Then come here.
 """
 
 import config
+import re
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
@@ -106,10 +107,70 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    count = 0
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
-    return session
+    while True:
+        count += 1
+        trace.check_iterations(count)
+
+        # Parse query for price, size
+        # parsed locally so searching does not require an additional model call.
+        parsed_query = query.strip()
+        price_match = re.search(
+            r"\b(?:under|below|up\s+to|max(?:imum)?(?:\s+price)?)\s*\$?\s*"
+            r"(\d+(?:\.\d{1,2})?)\b",
+            parsed_query,
+            flags=re.IGNORECASE,
+        )
+        size_match = re.search(
+            r"\b(?:size|sz\.?)\s*([A-Za-z]{1,4}(?:/[A-Za-z]{1,4})?|\d{1,3})\b",
+            parsed_query,
+            flags=re.IGNORECASE,
+        )
+
+        max_price = float(price_match.group(1)) if price_match else None
+        size = size_match.group(1) if size_match else None
+        description = parsed_query
+        if price_match:
+            description = description.replace(price_match.group(0), "")
+        if size_match:
+            description = description.replace(size_match.group(0), "")
+        description = re.sub(
+            r"\b(?:looking\s+for|i(?:'m| am)\s+looking\s+for|want|find\s+me)\b",
+            "",
+            description,
+            flags=re.IGNORECASE,
+        )
+        description = re.sub(r"\s+", " ", description).strip(" ,")
+
+        session["parsed"] = {
+            "description": description,
+            "size": size,
+            "max_price": max_price,
+        }
+
+        try:
+            results = search_listings(description, size, max_price)
+            session["search_results"] = results
+
+            if not results:
+                session["error"] = (
+                    "No matching listings were found. Try a broader description "
+                    "or a different size or maximum price."
+                )
+                return session
+
+            session["selected_item"] = results[0]
+
+            outfit = suggest_outfit(session["selected_item"], wardrobe)
+            session["outfit_suggestion"] = outfit
+
+            fit_card = create_fit_card(outfit, session["selected_item"])
+            session["fit_card"] = fit_card
+            return session
+        except ModelUnavailable as exc:
+            session["error"] = f"The styling model is unavailable: {exc}"
+            return session
 
 
 # ── running it directly ───────────────────────────────────────────────────────
