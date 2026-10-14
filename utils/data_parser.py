@@ -3,6 +3,7 @@
 import re
 from typing import Literal, TypedDict
 
+# Types
 
 ALPHA_SIZE_RANKS = {
     "XXS": 1,
@@ -20,30 +21,24 @@ class AlphaSize(TypedDict):
     min_rank: int
     max_rank: int
 
-
 class WaistInseamSize(TypedDict):
     family: Literal["waist_inseam"]
     waist: int
 
-
 class WaistInseamSizeWithInseam(WaistInseamSize):
     inseam: int
-
 
 class ShoeSize(TypedDict):
     family: Literal["shoe_size"]
     system: Literal["US"]
     value: float
 
-
 class OneSize(TypedDict):
     family: Literal["one_size"]
-
 
 class UnknownSize(TypedDict):
     family: Literal["unknown"]
     raw: str
-
 
 NormalizedSize = (
     AlphaSize
@@ -59,7 +54,7 @@ def normalize_size(size: str) -> NormalizedSize:
     """Normalize one of the supported raw size systems.
 
     Inputs:
-    size - size string, ex. W30 L30, M
+    size - string (ex. W30 L30, M)
     
     Recognized raw size strings:
     - alpha (``M``, ``S/M``, ``M/L``, ``XL (oversized)``)
@@ -81,15 +76,15 @@ def normalize_size(size: str) -> NormalizedSize:
     if re.match(r"^ONE SIZE", raw):
         return {"family": "one_size"}
 
-    # strip parenthetical annotations + remove preceeding whitespace (replace with "")
+    # strip parenthetical annotations and remove preceeding whitespace (replace with "")
     raw = re.sub(r"\s*\([^)]*\)", "", raw).strip()
 
    # match waist - ex. W30, L30
     waist_match = re.fullmatch(r"W(\d+)(?:\s*L(\d+))?", raw)
     if waist_match:
         result = {
-                    "family": "waist_inseam",
-          "waist": int(waist_match.group(1))  # W (waist) - required
+            "family": "waist_inseam",
+            "waist": int(waist_match.group(1))  # W (waist) - required
         }
         if waist_match.group(2): # L (inseam) - optional
             result["inseam"] = int(waist_match.group(2))
@@ -105,6 +100,7 @@ def normalize_size(size: str) -> NormalizedSize:
         }
 
     # match alpha values - ex. M, or S/M
+    # if single value (ex. M) - the min_rank and max_rank are the same value
     alpha_values = [part.strip() for part in raw.split("/")]
     if alpha_values and all(value in ALPHA_SIZE_RANKS for value in alpha_values):
         ranks = [ALPHA_SIZE_RANKS[value] for value in alpha_values]
@@ -118,12 +114,12 @@ def normalize_size(size: str) -> NormalizedSize:
     return {"family": "unknown", "raw": raw}
 
 
-def size_matches(listing: dict, requested_size: str) -> bool:
+def size_matches(listing_size: str, requested_size: str) -> bool:
     """Return whether a listing size satisfies a requested size.
 
     Inputs: 
-    listing - item to check size match of
-    requested_size - size to match
+    listing - size of item to check size match of
+    requested_size - size to match with
 
     Returns True if size matches
     
@@ -141,15 +137,15 @@ def size_matches(listing: dict, requested_size: str) -> bool:
 
     Examples:
         size_matches("M", "S/M") is True
-        size_matches("W30", "W30 L30") is True
-        size_matches("W30 L30", "W30") is False
+        size_matches("W30", "W30 L30") is False
+        size_matches("W30 L30", "W30") is True
         size_matches("US 9", "UK 9") is False
         size_matches("One Size", "One Size (adjustable)") is True
     """
-    listing = normalize_size(listing["size"])        # dict holding normalized size
+    listing = normalize_size(listing_size)        # dict holding normalized size
     requested = normalize_size(requested_size)
 
-    if listing["family"] != requested["family"]:
+    if listing["family"] != requested["family"]:     # sizing must use same system to be compared
         return False
 
     if listing["family"] == "alpha":
@@ -166,10 +162,10 @@ def size_matches(listing: dict, requested_size: str) -> bool:
         )
 
     if listing["family"] == "shoe_size":
-      return listing["value"] == requested["value"]
+        return listing["value"] == requested["value"]
 
-    if listing["family"] == requested["family"] == "one_size":
-      return True
+    if listing["family"] == "one_size":
+        return True
     
     return False
 
@@ -179,19 +175,21 @@ def tokenize_text(text: str) -> list[str]:
     Returns list containing tokenized keywords from text
     """
     text = text.lower()
-    text = re.sub(r"[^\w\s]+", " ", text)   # strip punctuation: replace non-word (character, number, _) and non-whitespace characters with empty string
+    # clean text (strip punctuation): replaces anything that's not a word 
+    # (character, number, _) and not a character with empty string
+    text = re.sub(r"[^\w\s]+", " ", text)
     return text.split()
 
-def listing_tokens(listing: dict) -> set[str]:
-    """Return unique searchable tokens from the listing's text fields.
+# def listing_tokens(listing: dict) -> set[str]:
+#     """Return unique searchable tokens from the listing's text fields.
 
-    Title and description are tokenized together. Style tags and colors are
-    added directly in their original form.
-    """
-    tokens = set(tokenize_text(listing["description"]))
-    tokens.update(tokenize_text(listing["title"]))
+#     Title and description are tokenized together. Style tags and colors are
+#     added directly in their original form.
+#     """
+#     tokens = set(tokenize_text(listing["description"]))
+#     tokens.update(tokenize_text(listing["title"]))
     
-    tokens.update(listing["style_tags"])    # adds all elements from list to set
-    tokens.update(listing["colors"])
+#     tokens.update(listing["style_tags"])    # adds all elements from list to set
+#     tokens.update(listing["colors"])
 
-    return tokens
+#     return tokens
