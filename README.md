@@ -76,7 +76,8 @@ featuring the found item and suggested outfit.
 
 ### `create_fit_card`
 
-- **What it does:**
+- **What it does:** Creates a short social-media-style caption describing the
+  new item, the suggested outfit, and its overall vibe.
 - **Inputs:** outfit (string), new_item (dict)
 - **Returns:** a string with a 2-4 sentence caption about the outfit combination passed in, mentioning the item (name), its price, platform, and the vibe of the outfit.
 - **When it has nothing:** Returns a descriptive message about the new item itself if no outfit string is passed in (never an exception, never "").
@@ -127,24 +128,51 @@ finally, the post for the selected item and outfit is put in fit_card
 **One full query**
 
 ```
-$ python app.py ask '...'
-
+$ python app.py ask 'vintage graphic tee under $30'
 ```
+
+
+  Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
+
+  Outfit:   * **Tops (New Item):** Graphic Tee — 2003 Tour Bootleg Style
+* **Bottoms:** Baggy straight-leg jeans, dark wash
+* **Outerwear:** Vintage black denim jacket
+* **Shoes:** Black combat boots
+* **Accessories:** Black crossbody bag
+
+  Fit card: Channel effortless grunge energy by pairing dark baggy denim with combat boots for an authentic, lived-in streetwear look. Layer it up with a black denim jacket and a crossbody bag for the ultimate weekend edge. Find the Graphic Tee — 2003 Tour Bootleg Style for $24.00 on Depop.
+
+0 model calls this session, 2 served from cache
 
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; import json; matching_listings=(search_listings('graphic tee', max_price=30)); pretty_json = json.dumps(matching_listings, indent=4); print(pretty_json);"
+$ python -c "from tools import search_listings; print([(x['id'], x['title'], x['price']) for x in search_listings('graphic tee', max_price=30)])"
+
+[('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0),
+ ('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0),
+ ('lst_033', 'Vintage Band Tee — Faded Grey', 19.0),
+ ('lst_015', 'Vintage Graphic Hoodie — Faded Black', 26.0),
+ ('lst_017', 'Mesh Long-Sleeve Top — Black', 15.0),
+ ('lst_011', 'Low-Rise Cargo Pants — Khaki', 27.0)]
 
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+
+* **Tops:** White ribbed tank top
+* **Bottoms (New Item):** Vintage Levi's 501 Jeans — Medium Wash
+* **Outerwear:** Vintage black denim jacket
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
 
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+
+Channel effortless off-duty cool by pairing the Vintage Levi's 501 Jeans — Medium Wash with your favorite crisp white sneakers for a timeless, laid-back look. These classic denim staples bring an authentic retro edge to any casual weekend rotation. Grab this piece for $38.00 exclusively on depop.
 
 ```
 
@@ -161,15 +189,22 @@ $ python -c "from tools import create_fit_card; ..."
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked AI to turn the search-listings TODO into a
+  function using the existing loader, size matcher, and tokenizer.
+- *What came back:* It used a truthiness check for `max_price`, which would
+  incorrectly skip a valid price ceiling of `0`.
+- *What I changed:* I changed the guard to check `max_price is not None` and
+  tested the tool from the terminal.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked AI to implement the two model-backed tools while
+  keeping each tool independently callable.
+- *What came back:* The empty-wardrobe prompt did not include the new item, and
+  the fit-card tool still returned an empty string.
+- *What I changed:* I added the item data to the fallback prompt, implemented
+  the fit-card fallback and model prompt, then ran each tool separately before
+  wiring them into the agent loop.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
